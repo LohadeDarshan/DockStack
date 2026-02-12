@@ -1,9 +1,3 @@
-Bilkul! 😄 Main aapke **DockStack project** ke liye ek **professional aur attractive README** bana deta hoon jo **setup, usage aur project info** clear dikhaye.
-
----
-
-# README.md
-
 ```markdown
 # DockStack 🚀
 
