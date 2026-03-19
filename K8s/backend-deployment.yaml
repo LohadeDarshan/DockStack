@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
-metadata: 
+metadata:
   name: backend
   namespace: dockstack
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -14,31 +14,31 @@ spec:
         app: backend
     spec:
       initContainers:
-       - name: wait-for-mysql
-         image: busybox
-         command: ['sh', '-c', 'until nc -z mysql-service 3306; do echo waiting for mysql; sleep 3; done']
+        - name: wait-for-mysql
+          image: busybox
+          command: ['sh', '-c', 'until nc -z mysql-service 3306; do echo waiting for mysql; sleep 3; done']
       containers:
-       - name: backend
-         image: myserverd/dockstack-backend:latest
-         ports:
-          - containerPort: 5000
-         env:
-          - name: DB_HOST
-            value: "mysql-service"
-          - name: DB_PORT
-            value: "3306"
-          - name: DB_NAME
-            valueFrom:
-             secretKeyRef:
-                 name: mysql-secret
-                 key: MYSQL_DATABASE
-          - name: DB_USER
-            valueFrom:
-              secretKeyRef:
-                 name: mysql-secret
-                 key: MYSQL_USER
-          - name: DB_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                 name: mysql-secret
-                 key: MYSQL_PASSWORD  
+        - name: backend
+          image: myserverd/dockstack-backend:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DB_HOST
+              value: "mysql-service"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_DATABASE
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_PASSWORD

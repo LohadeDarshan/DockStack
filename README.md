@@ -1,101 +1,130 @@
-```markdown
 # DockStack 🚀
 
-DockStack is a **full-stack Dockerized project** featuring a **React frontend**, **Node.js + Express backend**, and a **MySQL database**.  
-All three components run in **separate Docker containers** and communicate seamlessly.  
-
-This project is perfect for learning **full-stack development**, **Docker**, and **CI/CD integration with Jenkins**.
+DockStack is a **full-stack Kubernetes-deployed project** featuring a **React frontend**, **Node.js + Express backend**, and a **MySQL database**.  
+All three components run in **separate containers managed by Kubernetes** and communicate seamlessly.
 
 ---
 
-## Features
+## 🧱 Tech Stack
 
-- React frontend running on **port 3000**
-- Node.js backend API running on **port 5000**
-- MySQL database container with **persistent storage**
-- Preloaded sample data (`users` table)
-- Easy setup with **Docker Compose**
-- Fully containerized for development or testing
+| Layer     | Technology        | Port  |
+|-----------|-------------------|-------|
+| Frontend  | React             | 3000  |
+| Backend   | Node.js + Express | 5000  |
+| Database  | MySQL 8.0         | 3306  |
 
 ---
 
-## Project Structure
-
+## 📁 Project Structure
 ```
-
 DockStack/
 │
-├── frontend/       # React frontend code
-├── backend/        # Node.js backend code
-├── docker-compose.yml  # Docker Compose setup
-└── README.md       # Project documentation
-
-````
-
----
-
-## Requirements
-
-- Docker ≥ 20
-- Docker Compose
-- Node.js (for local development, optional)
-
----
-
-## Getting Started
-
-Clone the repository:
-
-```bash
-git clone <your-repo-url> DockStack
-cd DockStack
-````
-
-Start all services using Docker Compose:
-
-```bash
-docker-compose up --build
+├── frontend/          # React frontend code
+├── backend/           # Node.js backend code
+├── k8s/               # Kubernetes manifests
+│   ├── namespace.yaml
+│   ├── mysql-secret.yaml
+│   ├── mysql-configmap.yaml
+│   ├── mysql-pvc.yaml
+│   ├── mysql-deployment.yaml
+│   ├── backend-deployment.yaml
+│   └── frontend-deployment.yaml
+└── README.md
 ```
 
-### Access the application
+---
 
-* Frontend: [http://localhost:3000](http://localhost:3000)
-* Backend API: [http://localhost:5000/api/users](http://localhost:5000/api/users)
-* MySQL: localhost:3306 (credentials in `docker-compose.yml`)
+## ✅ Requirements
+
+- Docker ≥ 20
+- Kubernetes (Minikube for local or any cloud cluster)
+- kubectl CLI
+- Docker Hub account (to push images)
 
 ---
 
-## Sample Data
+## 🐳 Step 1 — Build & Push Docker Images
+```bash
+# Backend
+docker build -t your-dockerhub-username/dockstack-backend:latest ./backend
+docker push your-dockerhub-username/dockstack-backend:latest
 
-The MySQL database is preloaded with a simple `users` table:
+# Frontend
+docker build -t your-dockerhub-username/dockstack-frontend:latest ./frontend
+docker push your-dockerhub-username/dockstack-frontend:latest
+```
+
+---
+
+## ☸️ Step 2 — Deploy to Kubernetes
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/mysql-secret.yaml
+kubectl apply -f k8s/mysql-configmap.yaml
+kubectl apply -f k8s/mysql-pvc.yaml
+kubectl apply -f k8s/mysql-deployment.yaml
+kubectl apply -f k8s/mysql-service.yaml
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+```
+
+---
+
+## 🌐 Step 3 — Access the Application
+
+**Minikube:**
+```bash
+minikube service frontend-service -n dockstack
+```
+
+**Manual:**
+| Service      | URL                          |
+|--------------|------------------------------|
+| Frontend     | http://\<node-ip\>:30000     |
+| Backend API  | http://\<node-ip\>:5000/api/users |
+
+---
+
+## 🗄️ Sample Data
+
+The MySQL database is preloaded automatically with a `users` table:
 
 | id | name  |
-| -- | ----- |
+|----|-------|
 | 1  | Alice |
 | 2  | Bob   |
 
 ---
 
-## API Endpoints
+## 📡 API Endpoints
 
-* `GET /api/users` – List all users
-
-You can extend backend API as needed.
-
----
-
-## Development Notes
-
-* Backend container waits for MySQL to be ready.
-* Frontend container depends on backend.
-* Docker volumes are used to persist database data.
+| Method | Endpoint     | Description      |
+|--------|--------------|------------------|
+| GET    | /api/users   | Get all users    |
 
 ---
 
-## Cleanup
-
-Stop and remove all containers:
-
+## 🔍 Verify Pods are Running
 ```bash
-docker-compose down
-``'
+kubectl get pods -n dockstack
+kubectl get svc -n dockstack
+```
+
+---
+
+## 🧹 Cleanup
+```bash
+kubectl delete namespace dockstack
+```
+
+This removes all pods, services, and deployments at once.
+
+---
+
+## 📌 Notes
+
+- MySQL data is persisted using a **PersistentVolumeClaim**
+- Backend waits for MySQL to be ready using an **initContainer**
+- Credentials are stored securely in a **Kubernetes Secret**

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-script
+  namespace: dockstack
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS dockstack;
+    USE dockstack;
+
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL
+    );
+
+    INSERT INTO users (name) VALUES ('Alice'), ('Bob');

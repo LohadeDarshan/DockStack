@@ -14,35 +14,40 @@ spec:
         app: mysql
     spec:
       containers:
-       - name: mysql
-         image: mysql:8.0
-         ports:
-          - containerPort: 3306
-         env:
-          - name: MYSQL_ROOT_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: mysql-secret
-                key: MYSQL_ROOT_PASSWORD
-          - name:  MYSQL_DATABASE
-            valueFrom:
-              secretKeyRef:
-                name: mysql-secret
-                key: MYSQL_DATABASE
-          - name: MYSQL_USER
-            valueFrom:
-              secretKeyRef:
-                name: mysql-secret
-                key: MYSQL_USER
-          - name: MYSQL_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: mysql-secret
-                key: MYSQL_PASSWORD
-         volumeMounts:
-          - name: mysql-storage
-            mountPath: /var/lib/mysql
+        - name: mysql
+          image: mysql:8.0
+          ports:
+           - containerPort: 3306
+          env:
+           - name: MYSQL_ROOT_PASSWORD
+             valueFrom:
+               secretKeyRef:
+                 name: mysql-secret
+                 key: MYSQL_ROOT_PASSWORD
+           - name:  MYSQL_DATABASE
+             valueFrom:
+               secretKeyRef:
+                 name: mysql-secret
+                 key: MYSQL_DATABASE
+           - name: MYSQL_USER
+             valueFrom:
+               secretKeyRef:
+                 name: mysql-secret
+                 key: MYSQL_USER
+           - name: MYSQL_PASSWORD
+             valueFrom:
+               secretKeyRef:
+                 name: mysql-secret
+                 key: MYSQL_PASSWORD
+          volumeMounts:
+           - name: mysql-storage
+             mountPath: /var/lib/mysql
+           - name: init-script
+             mountPath: /docker-entrypoint-initdb.d
       volumes:
-        - name: mysql-storage
-          persistentVolumeClaim:
-            claimName: mysql-pvc
+         - name: mysql-storage
+           persistentVolumeClaim:
+             claimName: mysql-pvc
+         - name: init-script
+           configMap:
+             name: mysql-init-script
