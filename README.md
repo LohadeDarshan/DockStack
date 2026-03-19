@@ -46,12 +46,12 @@ DockStack/
 ## 🐳 Step 1 — Build & Push Docker Images
 ```bash
 # Backend
-docker build -t your-dockerhub-username/dockstack-backend:latest ./backend
-docker push your-dockerhub-username/dockstack-backend:latest
+docker build -t myserverd/dockstack-backend:latest ./backend
+docker push myserverd/dockstack-backend:latest
 
 # Frontend
-docker build -t your-dockerhub-username/dockstack-frontend:latest ./frontend
-docker push your-dockerhub-username/dockstack-frontend:latest
+docker build -t myserverd/dockstack-frontend:latest ./frontend
+docker push myserverd/dockstack-frontend:latest
 ```
 
 ---
