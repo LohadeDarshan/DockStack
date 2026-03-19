@@ -1,21 +1,25 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React from "react";
 
 function App() {
-  const [users, setUsers] = useState([]);
-
-  useEffect(() => {
-    axios.get("http://localhost:5000/api/users")
-      .then(res => setUsers(res.data))
-      .catch(err => console.error(err));
-  }, []);
-
   return (
-    <div>
-      <h1>Users</h1>
+    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
+      <h1>Welcome to DockStack</h1>
+      <p>
+        DockStack is a lightweight platform that helps you manage your Docker
+        containers efficiently. With DockStack, you can start, stop, and monitor
+        your applications with ease.
+      </p>
+      <h2>Features</h2>
       <ul>
-        {users.map(u => <li key={u.id}>{u.name}</li>)}
+        <li>Easy container orchestration</li>
+        <li>Simple setup and configuration</li>
+        <li>Monitor running containers in real-time</li>
+        <li>Works with any Docker image</li>
       </ul>
+      <p>
+        Get started by creating a new Docker container and let DockStack handle
+        the rest!
+      </p>
     </div>
   );
 }
