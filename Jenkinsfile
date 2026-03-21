@@ -9,6 +9,8 @@ pipeline {
         PREV_TAG           = "${env.BUILD_NUMBER.toInteger() > 1 ? "v${env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
         NAMESPACE          = 'dockstack'
         BACKEND_HEALTH_URL = 'http://localhost:5000'
+        SONAR_HOST_URL     = 'http://192.168.10.2:9000' // SonarQube Docker container IP / host
+        SONAR_AUTH_TOKEN   = credentials('sonar-token')
     }
 
     stages {
@@ -29,7 +31,7 @@ pipeline {
                         sonar-scanner \
                         -Dsonar.projectKey=dockstack \
                         -Dsonar.projectName=DockStack \
-                        -Dsonar.sources=. \
+                        -Dsonar.sources=backend,frontend \
                         -Dsonar.host.url=$SONAR_HOST_URL \
                         -Dsonar.login=$SONAR_AUTH_TOKEN
                     """
