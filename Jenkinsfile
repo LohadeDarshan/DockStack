@@ -1,4 +1,4 @@
-pipeline u{
+pipeline {
     agent any
     environment {
         DOCKER_HUB_USER = 'myserverd'
