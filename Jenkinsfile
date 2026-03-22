@@ -5,9 +5,7 @@ pipeline {
         BACKEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-backend-new"
         FRONTEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-frontend-new"
         IMAGE_TAG = "v${env.BUILD_NUMBER}"
-        PREV_TAG = "${env.BUILD_NUMBER.toInteger() > 1 ? "v$ {
-            env.BUILD_NUMBER.toInteger() - 1
-        }" : "v1"}"
+        PREV_TAG = "${env.BUILD_NUMBER.toInteger() > 1 ? "v$ {env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
         NAMESPACE = 'dockstack'
         BACKEND_HEALTH_URL = 'http://localhost:5000/api/users'
         CLIENT_SERVER_IP = '192.168.10.3'
