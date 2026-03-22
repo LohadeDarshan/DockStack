@@ -69,7 +69,7 @@ pipeline {
             steps {
                 echo "🚀 Deploying to CLIENT SERVER..."
 
-                sshagent(['remote-server']) {
+                sshagent(['ClientServer']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
                 
@@ -121,7 +121,7 @@ pipeline {
             failure {
                 echo '🔁 Rolling back on CLIENT SERVER...'
 
-                sshagent(['remote-server']) {
+                sshagent(['ClientServer']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
 
