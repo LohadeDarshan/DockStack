@@ -1,19 +1,20 @@
 pipeline {
     agent any
-
     environment {
-        DOCKER_HUB_USER    = 'myserverd'
-        BACKEND_IMAGE      = "${DOCKER_HUB_USER}/dockstack-backend-new"
-        FRONTEND_IMAGE     = "${DOCKER_HUB_USER}/dockstack-frontend-new"
-        IMAGE_TAG          = "v${env.BUILD_NUMBER}"
-        PREV_TAG           = "${env.BUILD_NUMBER.toInteger() > 1 ? "v${env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
-        NAMESPACE          = 'dockstack'
-        BACKEND_HEALTH_URL = 'http://localhost:5000/health'
+        DOCKER_HUB_USER = 'myserverd'
+        BACKEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-backend-new"
+        FRONTEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-frontend-new"
+        IMAGE_TAG = "v${env.BUILD_NUMBER}"
+        PREV_TAG = "${env.BUILD_NUMBER.toInteger() > 1 ? "v$ {
+            env.BUILD_NUMBER.toInteger() - 1
+        }" : "v1"}"
+        NAMESPACE = 'dockstack'
+        BACKEND_HEALTH_URL = 'http://localhost:5000/api/users'
         CLIENT_SERVER_IP = '192.168.10.3'
+        MAX_RETRIES = 10
+        RETRY_INTERVAL = 10
     }
-
     stages {
-
         // ─── STAGE 1: Checkout code ───────────────────────────────────
         stage('Checkout') {
             steps {
@@ -21,7 +22,6 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/LohadeDarshan/DockStack.git'
             }
         }
-
         // ─── STAGE 2: SonarQube Scan ───────────────────────────────────
         stage('SonarQube Scan') {
             steps {
@@ -38,7 +38,6 @@ pipeline {
                 }
             }
         }
-
         // ─── STAGE 3: Build images ───────────────────────────────────
         stage('Build Docker Images') {
             parallel {
@@ -50,11 +49,10 @@ pipeline {
                 stage('Frontend Build') {
                     steps {
                         sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend"
-                            }
-                        }
                     }
                 }
-
+            }
+        }
         // ─── STAGE 4: Push to Docker Hub ─────────────────────────────
         stage('Push to Docker Hub') {
             steps {
@@ -65,13 +63,11 @@ pipeline {
                     """
                 }
             }
-        }          
-
+        }
         // ─── STAGE 5: Deploy new version ─────────────────────────────
         stage('Deploy using Docker Compose') {
             steps {
                 echo "🚀 Deploying to CLIENT SERVER..."
-
                 sshagent(['DevCICD']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
@@ -93,39 +89,43 @@ pipeline {
                 }
             }
         }
-
         // ─── STAGE 6: Health Check ────────────────────────────────────
         stage('Health Check') {
             steps {
                 echo '🔍 Running health checks on CLIENT SERVER...'
-                script {
-                    def result = sh(
-                        script: """
-                        ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
-                        curl -s -o /dev/null -w "%{http_code}" ${BACKEND_HEALTH_URL}
-                        '
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    if (result != '200') {
-                        error("❌ Health check FAILED! Triggering rollback...")
-                    } else {
-                        echo "✅ Health check PASSED!"
-                            }
-                        }   
+                sshagent(['DevCICD']) {
+                    script {
+                        def result = sh(
+                            script: """
+                                ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
+                                for i in \$(seq 1 $MAX_RETRIES); do
+                                    HTTP_STATUS=\$(curl -s -o /dev/null -w "%{http_code}" ${BACKEND_HEALTH_URL})
+                                    if [ "\$HTTP_STATUS" -eq 200 ]; then
+                                        echo "✅ Health check PASSED (HTTP \$HTTP_STATUS)"
+                                        exit 0
+                                    else
+                                        echo "❌ Health check FAILED (HTTP \$HTTP_STATUS) — retrying in $RETRY_INTERVAL s"
+                                        sleep $RETRY_INTERVAL
+                                    fi
+                                done
+                                echo "🚨 All retries exhausted. Deployment UNHEALTHY."
+                                exit 1
+                                '
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        echo result
                     }
                 }
             }
         }
-
-        // ─── AUTO ROLLBACK on failure ─────────────────────────────────────
-        post {
-            failure {
-                echo '🔁 Rolling back on CLIENT SERVER...'
-
-                sshagent(['DevCICD']) {
-                    sh """
+    }
+    // ─── AUTO ROLLBACK on failure ─────────────────────────────────────
+    post {
+        failure {
+            echo '🔁 Rolling back on CLIENT SERVER...'
+            sshagent(['DevCICD']) {
+                sh """
                         ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
 
                         cd /root/DockStack
@@ -138,16 +138,16 @@ pipeline {
                         docker compose up -d
                         '
                     """
-                }
             }
-
-            success {
-                echo """
+        }
+        success {
+            echo """
                 ╔══════════════════════════════════════╗
                 ║  ✅ DEPLOYMENT SUCCESSFUL             ║
                 ║  Version: ${IMAGE_TAG}                ║
                 ║  All health checks passed             ║
                 ╚══════════════════════════════════════╝
                 """
-            }
         }
+    }
+}
