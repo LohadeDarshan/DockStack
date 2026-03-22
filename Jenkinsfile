@@ -43,9 +43,11 @@ pipeline {
             steps {
                 echo '🐳 Building Docker images...'
                 sh """
-                    docker-compose build
-                    docker tag ${DOCKER_HUB_USER}/dockstack-backend:latest ${BACKEND_IMAGE}:${IMAGE_TAG}
-                    docker tag ${DOCKER_HUB_USER}/dockstack-frontend:latest ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                    # Build backend image
+                    docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
+
+                    # Build frontend image
+                    docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
                 """
             }
         }
