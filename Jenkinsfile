@@ -69,7 +69,7 @@ pipeline {
 
                 sshagent(['remote-server']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no root@192.168.10.6 '
+                        ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
                 
                         cd /root/DockStack
 
@@ -81,8 +81,8 @@ pipeline {
                         echo "IMAGE_TAG=${IMAGE_TAG}" > .env
 
                         # Restart containers
-                        docker compose down
-                        docker compose up -d
+                        docker-compose down
+                        docker-compose up -d
                         '
                     """
                 }
@@ -96,7 +96,7 @@ pipeline {
                 script {
                     def result = sh(
                         script: """
-                        ssh -o StrictHostKeyChecking=no root@192.168.10.6 '
+                        ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
                         curl -s -o /dev/null -w "%{http_code}" ${BACKEND_HEALTH_URL}
                         '
                         """,
@@ -121,7 +121,7 @@ pipeline {
 
                 sshagent(['remote-server']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no root@192.168.10.6 '
+                        ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
 
                         cd /root/DockStack
 
@@ -129,8 +129,8 @@ pipeline {
                         echo "IMAGE_TAG=${PREV_TAG}" > .env
 
                         # Restart containers with old version
-                        docker compose down
-                        docker compose up -d
+                        docker-compose down
+                        docker-compose up -d
                         '
                     """
                 }
