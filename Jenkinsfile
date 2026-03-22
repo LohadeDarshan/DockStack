@@ -8,7 +8,7 @@ pipeline {
         IMAGE_TAG          = "v${env.BUILD_NUMBER}"
         PREV_TAG           = "${env.BUILD_NUMBER.toInteger() > 1 ? "v${env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
         NAMESPACE          = 'dockstack'
-        BACKEND_HEALTH_URL = 'http://localhost:5000'
+        BACKEND_HEALTH_URL = 'http://localhost:5000/health'
         CLIENT_SERVER_IP = '192.168.10.3'
     }
 
@@ -41,17 +41,19 @@ pipeline {
 
         // ─── STAGE 3: Build images ───────────────────────────────────
         stage('Build Docker Images') {
-            steps {
-                echo '🐳 Building Docker images...'
-                sh """
-                    # Build backend image
-                    docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
-
-                    # Build frontend image
-                    docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
-                """
-            }
-        }
+            parallel {
+                stage('Backend Build') {
+                    steps {
+                        sh "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend"
+                    }
+                }
+                stage('Frontend Build') {
+                    steps {
+                        sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend"
+                            }
+                        }
+                    }
+                }
 
         // ─── STAGE 4: Push to Docker Hub ─────────────────────────────
         stage('Push to Docker Hub') {
