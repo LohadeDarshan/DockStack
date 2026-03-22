@@ -84,8 +84,8 @@ pipeline {
                         echo "IMAGE_TAG=${IMAGE_TAG}" > .env
 
                         # Restart containers
-                        docker-compose down
-                        docker-compose up -d
+                        docker compose down
+                        docker compose up -d
                         '
                     """
                 }
@@ -132,8 +132,8 @@ pipeline {
                         echo "IMAGE_TAG=${PREV_TAG}" > .env
 
                         # Restart containers with old version
-                        docker-compose down
-                        docker-compose up -d
+                        docker compose down
+                        docker compose up -d
                         '
                     """
                 }
