@@ -9,8 +9,6 @@ pipeline {
         PREV_TAG           = "${env.BUILD_NUMBER.toInteger() > 1 ? "v${env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
         NAMESPACE          = 'dockstack'
         BACKEND_HEALTH_URL = 'http://localhost:5000'
-        SONAR_HOST_URL     = 'http://192.168.10.2:9000' // SonarQube Docker container IP / host
-        SONAR_AUTH_TOKEN   = credentials('sonar-token')
     }
 
     stages {
@@ -26,15 +24,16 @@ pipeline {
         // ─── STAGE 2: SonarQube Scan ───────────────────────────────────
         stage('SonarQube Scan') {
             steps {
-                withSonarQubeEnv('sonar') {
-                    sh """
-                        sonar-scanner \
+                script {
+                    def scannerHome = tool 'sonar'
+                    withSonarQubeEnv('sonar') {
+                        sh """
+                        ${scannerHome}/bin/sonar-scanner \
                         -Dsonar.projectKey=dockstack \
                         -Dsonar.projectName=DockStack \
-                        -Dsonar.sources=backend,frontend \
-                        -Dsonar.host.url=$SONAR_HOST_URL \
-                        -Dsonar.login=$SONAR_AUTH_TOKEN
-                    """
+                        -Dsonar.sources=backend,frontend
+                        """
+                    }
                 }
             }
         }
@@ -45,8 +44,8 @@ pipeline {
                 echo '🐳 Building Docker images...'
                 sh """
                     docker-compose build
-                    docker tag DOCKER_HUB_USER/dockstack-backend:latest DOCKER_HUB_USER/dockstack-backend:${IMAGE_TAG}
-                    docker tag DOCKER_HUB_USER/dockstack-frontend:latest DOCKER_HUB_USER/dockstack-frontend:${IMAGE_TAG}
+                    docker tag ${DOCKER_HUB_USER}/dockstack-backend:latest ${BACKEND_IMAGE}:${IMAGE_TAG}
+                    docker tag ${DOCKER_HUB_USER}/dockstack-frontend:latest ${FRONTEND_IMAGE}:${IMAGE_TAG}
                 """
             }
         }
@@ -56,8 +55,8 @@ pipeline {
             steps {
                 withDockerRegistry(url: 'https://index.docker.io/v1/', credentialsId: 'dockerHubCred') {
                     sh """
-                        docker push DOCKER_HUB_USER/dockstack-backend:${IMAGE_TAG}
-                        docker push DOCKER_HUB_USER/dockstack-frontend:${IMAGE_TAG}
+                        docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
                     """
                 }
             }
@@ -82,8 +81,8 @@ pipeline {
                         echo "IMAGE_TAG=${IMAGE_TAG}" > .env
 
                         # Restart containers
-                        docker-compose down
-                        docker-compose up -d
+                        docker compose down
+                        docker compose up -d
                         '
                     """
                 }
@@ -97,7 +96,7 @@ pipeline {
                 script {
                     def result = sh(
                         script: """
-                        ssh -o StrictHostKeyChecking=no ubuntu@192.168.10.6 '
+                        ssh -o StrictHostKeyChecking=no root@192.168.10.6 '
                         curl -s -o /dev/null -w "%{http_code}" ${BACKEND_HEALTH_URL}
                         '
                         """,
@@ -130,8 +129,8 @@ pipeline {
                         echo "IMAGE_TAG=${PREV_TAG}" > .env
 
                         # Restart containers with old version
-                        docker-compose down
-                        docker-compose up -d
+                        docker compose down
+                        docker compose up -d
                         '
                     """
                 }
