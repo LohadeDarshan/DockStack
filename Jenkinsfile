@@ -9,6 +9,7 @@ pipeline {
         PREV_TAG           = "${env.BUILD_NUMBER.toInteger() > 1 ? "v${env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
         NAMESPACE          = 'dockstack'
         BACKEND_HEALTH_URL = 'http://localhost:5000'
+        CLIENT_SERVER_IP = '192.168.10.3'
     }
 
     stages {
@@ -69,9 +70,9 @@ pipeline {
             steps {
                 echo "🚀 Deploying to CLIENT SERVER..."
 
-                sshagent(['ClientServer']) {
+                sshagent(['DevCICD']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
+                        ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
                 
                         cd /root/DockStack
 
@@ -98,7 +99,7 @@ pipeline {
                 script {
                     def result = sh(
                         script: """
-                        ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
+                        ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
                         curl -s -o /dev/null -w "%{http_code}" ${BACKEND_HEALTH_URL}
                         '
                         """,
@@ -121,9 +122,9 @@ pipeline {
             failure {
                 echo '🔁 Rolling back on CLIENT SERVER...'
 
-                sshagent(['ClientServer']) {
+                sshagent(['DevCICD']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no root@192.168.10.3 '
+                        ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
 
                         cd /root/DockStack
 
