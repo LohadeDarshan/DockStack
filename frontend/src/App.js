@@ -15,6 +15,7 @@ function App() {
         <li>Simple setup and configuration</li>
         <li>Monitor running containers in real-time</li>
         <li>Works with any Docker image</li>
+        <li>Docker is lightweight</li>
       </ul>
       <p>
         Get started by creating a new Docker container and let DockStack handle
