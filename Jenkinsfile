@@ -6,10 +6,10 @@ pipeline {
         FRONTEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-frontend-new"
         IMAGE_TAG = "v${env.BUILD_NUMBER}"
         NAMESPACE = 'dockstack'
-        BACKEND_HEALTH_URL = 'http://localhost:5000/health'
+        BACKEND_HEALTH_URL = 'http://127.0.0.1:5000/health'
         CLIENT_SERVER_IP = '192.168.10.7'
-        MAX_RETRIES = 24
-        RETRY_INTERVAL = 5
+        MAX_RETRIES = 48
+        RETRY_INTERVAL = 10
     }
     stages {
         // ─── STAGE 1: Checkout code ───────────────────────────────────
@@ -98,7 +98,7 @@ pipeline {
                             script: """
                                 ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
                                 for i in \$(seq 1 $MAX_RETRIES); do
-                                    HTTP_STATUS=\$(curl -s -o /dev/null -w "%{http_code}" ${BACKEND_HEALTH_URL})
+                                    HTTP_STATUS=\$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/health)
                                     if [ "\$HTTP_STATUS" -eq 200 ]; then
                                         echo "✅ Health check PASSED (HTTP \$HTTP_STATUS)"
                                         exit 0
@@ -106,11 +106,11 @@ pipeline {
                                         echo "❌ Health check FAILED (HTTP \$HTTP_STATUS) — retrying in $RETRY_INTERVAL s"
                                         sleep $RETRY_INTERVAL
                                     fi
-                                done
-                                echo "🚨 All retries exhausted. Deployment UNHEALTHY."
-                                exit 1
-                                '
-                            """,
+                                    done
+                                    echo "🚨 All retries exhausted. Deployment UNHEALTHY."
+                                    exit 1
+                                    '
+                                """,
                             returnStdout: true
                         ).trim()
                         echo result
@@ -135,7 +135,6 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     echo "Previous image tag detected: ${prevTag}"
-
                     // Step 2: Rollback safely
                     sh """
                         ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
