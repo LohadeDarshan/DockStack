@@ -21,6 +21,18 @@ db.connect(err => {
   }
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  db.ping(err => {
+    if (err) {
+      console.error('DB ping failed:', err);
+      return res.status(500).json({ status: 'DOWN', error: err.message });
+    }
+    res.status(200).json({ status: 'UP' });
+  });
+});
+
+// Existing API
 app.get('/api/users', (req, res) => {
   db.query('SELECT * FROM users', (err, results) => {
     if (err) return res.status(500).send(err);
