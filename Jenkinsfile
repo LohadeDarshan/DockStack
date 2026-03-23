@@ -5,12 +5,11 @@ pipeline {
         BACKEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-backend-new"
         FRONTEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-frontend-new"
         IMAGE_TAG = "v${env.BUILD_NUMBER}"
-        PREV_TAG = "${env.BUILD_NUMBER.toInteger() > 1 ? "v${env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
         NAMESPACE = 'dockstack'
-        BACKEND_HEALTH_URL = 'http://localhost:5000/api/users'
+        BACKEND_HEALTH_URL = 'http://localhost:5000/health'
         CLIENT_SERVER_IP = '192.168.10.7'
-        MAX_RETRIES = 10
-        RETRY_INTERVAL = 10
+        MAX_RETRIES = 24
+        RETRY_INTERVAL = 5
     }
     stages {
         // ─── STAGE 1: Checkout code ───────────────────────────────────
@@ -69,15 +68,16 @@ pipeline {
                 sshagent(['DevCICD']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
-                
                         cd /root/DockStack
 
                         # Pull latest images
                         docker pull ${BACKEND_IMAGE}:${IMAGE_TAG}
                         docker pull ${FRONTEND_IMAGE}:${IMAGE_TAG}
 
-                        # Update env file
-                        echo "IMAGE_TAG=${IMAGE_TAG}" > .env
+                        # Update env file safely
+                        grep -q "^IMAGE_TAG=" .env && \
+                        sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env || \
+                        echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
 
                         # Restart containers
                         docker compose down
@@ -123,27 +123,42 @@ pipeline {
         failure {
             echo '🔁 Rolling back on CLIENT SERVER...'
             sshagent(['DevCICD']) {
-                sh """
+                script {
+                    // Step 1: Auto-detect previous IMAGE_TAG
+                    def prevTag = sh(
+                        script: """
                         ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
+                        grep IMAGE_TAG /root/DockStack/.env | cut -d "=" -f2
+                        '
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    echo "Previous image tag detected: ${prevTag}"
 
+                    // Step 2: Rollback safely
+                    sh """
+                        ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
                         cd /root/DockStack
 
-                     # Switch to previous version
-                        echo "IMAGE_TAG=${PREV_TAG}" > .env
+                        # Update IMAGE_TAG in env safely
+                        grep -q "^IMAGE_TAG=" .env && \
+                        sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${prevTag}/" .env || \
+                        echo "IMAGE_TAG=${prevTag}" >> .env
 
                         # Restart containers with old version
                         docker compose down
                         docker compose up -d
                         '
                     """
+                }
             }
         }
         success {
             echo """
                 ╔══════════════════════════════════════╗
-                ║  ✅ DEPLOYMENT SUCCESSFUL             ║
-                ║  Version: ${IMAGE_TAG}                ║
-                ║  All health checks passed             ║
+                ║  ✅ DEPLOYMENT SUCCESSFUL            ║  
+                ║  Version: ${IMAGE_TAG}               ║
+                ║  All health checks passed            ║
                 ╚══════════════════════════════════════╝
                 """
         }
