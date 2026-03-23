@@ -29,7 +29,7 @@ pipeline {
                         ${scannerHome}/bin/sonar-scanner \
                         -Dsonar.projectKey=dockstack \
                         -Dsonar.projectName=DockStack \
-                        -Dsonar.sources=backend,frontend
+                        -Dsonar.sources=backend,frontend \
                         -Dsonar.javascript.skip=true
                         """
                     }
