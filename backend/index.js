@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 const db = mysql.createConnection({
-  host: 'db',
+  host: 'dockstack-mysql',
   user: 'dockuser',
   password: 'dockpassword',
   database: 'dockstack'
