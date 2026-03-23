@@ -8,7 +8,7 @@ pipeline {
         PREV_TAG = "${env.BUILD_NUMBER.toInteger() > 1 ? "v${env.BUILD_NUMBER.toInteger() - 1}" : "v1"}"
         NAMESPACE = 'dockstack'
         BACKEND_HEALTH_URL = 'http://localhost:5000/api/users'
-        CLIENT_SERVER_IP = '192.168.10.3'
+        CLIENT_SERVER_IP = '192.168.10.7'
         MAX_RETRIES = 10
         RETRY_INTERVAL = 10
     }
