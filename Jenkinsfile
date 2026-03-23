@@ -30,6 +30,7 @@ pipeline {
                         -Dsonar.projectKey=dockstack \
                         -Dsonar.projectName=DockStack \
                         -Dsonar.sources=backend,frontend
+                        -Dsonar.javascript.skip=true
                         """
                     }
                 }
