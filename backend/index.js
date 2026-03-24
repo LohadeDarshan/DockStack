@@ -1,45 +1,76 @@
 const express = require('express');
 const mysql = require('mysql2');
-const cors = require('cors');
 
 const app = express();
-app.use(cors());
+const PORT = 5000;
+
 app.use(express.json());
 
-const db = mysql.createConnection({
-  host: 'dockstack-mysql',
-  user: 'dockuser',
-  password: 'dockpassword',
-  database: 'dockstack'
+// ✅ FIX 3: Single connection ki jagah CONNECTION POOL use karo
+// Pool automatically reconnect karta hai agar connection drop ho jaaye
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'mysql',
+  port: process.env.DB_PORT || 3306,
+  database: process.env.DB_NAME || 'dockstack',
+  user: process.env.DB_USER || 'dockuser',
+  password: process.env.DB_PASSWORD || 'dockpassword',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  // ✅ FIX 4: Stale connections ko auto-handle karo
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
-db.connect(err => {
-  if (err) {
-    console.error('DB connection error:', err);
-  } else {
-    console.log('Connected to MySQL database');
+// Promise wrapper for cleaner async/await usage
+const db = pool.promise();
+
+// ✅ FIX 5: Startup pe DB connection verify karo with retry
+async function waitForDB(retries = 10, delay = 3000) {
+  for (let i = 1; i <= retries; i++) {
+    try {
+      const [rows] = await db.query('SELECT 1');
+      console.log('✅ DB connected successfully');
+      return true;
+    } catch (err) {
+      console.log(`⏳ DB connection attempt ${i}/${retries} failed: ${err.message}`);
+      if (i === retries) {
+        console.error('❌ Could not connect to DB after all retries');
+        process.exit(1);
+      }
+      await new Promise(res => setTimeout(res, delay));
+    }
+  }
+}
+
+// Health check endpoint — Jenkins pipeline isko check karta hai
+app.get('/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.status(200).json({ status: 'UP', db: 'connected' });
+  } catch (err) {
+    res.status(500).json({ status: 'DOWN', error: err.message });
   }
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  db.ping(err => {
-    if (err) {
-      console.error('DB ping failed:', err);
-      return res.status(500).json({ status: 'DOWN', error: err.message });
-    }
-    res.status(200).json({ status: 'UP' });
-  });
+// Users fetch endpoint
+app.get('/users', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM users');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Existing API
-app.get('/api/users', (req, res) => {
-  db.query('SELECT * FROM users', (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
-});
+// App start — pehle DB ready karo, phir server listen karo
+async function startServer() {
+  console.log('🔄 Waiting for database connection...');
+  await waitForDB();
 
-app.listen(5000, () => {
-  console.log('Backend running on port 5000');
-});
+  app.listen(PORT, () => {
+    console.log(`🚀 Backend running on port ${PORT}`);
+  });
+}
+
+startServer();

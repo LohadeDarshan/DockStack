@@ -5,21 +5,19 @@ pipeline {
         BACKEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-backend-new"
         FRONTEND_IMAGE = "${DOCKER_HUB_USER}/dockstack-frontend-new"
         IMAGE_TAG = "v${env.BUILD_NUMBER}"
-        NAMESPACE = 'dockstack'
-        BACKEND_HEALTH_URL = 'http://127.0.0.1:5000/health'
-        CLIENT_SERVER_IP = '192.168.10.6'
-        MAX_RETRIES = 48
-        RETRY_INTERVAL = 10
+        CLIENT_SERVER_IP = '192.168.10.7'
+        MAX_RETRIES = '48'
+        RETRY_INTERVAL = '10'
     }
     stages {
-        // ─── STAGE 1: Checkout code ───────────────────────────────────
+        // ─── STAGE 1: Checkout ────────────────────────────────────────
         stage('Checkout') {
             steps {
                 echo '📥 Pulling latest code from GitHub...'
                 git branch: 'main', url: 'https://github.com/LohadeDarshan/DockStack.git'
             }
         }
-        // ─── STAGE 2: SonarQube Scan ───────────────────────────────────
+        // ─── STAGE 2: SonarQube Scan ──────────────────────────────────
         stage('SonarQube Scan') {
             steps {
                 script {
@@ -36,7 +34,7 @@ pipeline {
                 }
             }
         }
-        // ─── STAGE 3: Build images ───────────────────────────────────
+        // ─── STAGE 3: Build Docker Images ─────────────────────────────
         stage('Build Docker Images') {
             parallel {
                 stage('Backend Build') {
@@ -51,7 +49,7 @@ pipeline {
                 }
             }
         }
-        // ─── STAGE 4: Push to Docker Hub ─────────────────────────────
+        // ─── STAGE 4: Push to Docker Hub ──────────────────────────────
         stage('Push to Docker Hub') {
             steps {
                 withDockerRegistry(url: 'https://index.docker.io/v1/', credentialsId: 'dockerHubCred') {
@@ -62,25 +60,22 @@ pipeline {
                 }
             }
         }
-        // ─── STAGE 5: Deploy new version ─────────────────────────────
+        // ─── STAGE 5: Deploy ──────────────────────────────────────────
         stage('Deploy using Docker Compose') {
             steps {
-                echo "🚀 Deploying to CLIENT SERVER..."
+                echo "🚀 Deploying to CLIENT SERVER (${CLIENT_SERVER_IP})..."
                 sshagent(['DevCICD']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
                         cd /root/DockStack
 
-                        # Pull latest images
                         docker pull ${BACKEND_IMAGE}:${IMAGE_TAG}
                         docker pull ${FRONTEND_IMAGE}:${IMAGE_TAG}
 
-                        # Update env file safely
                         grep -q "^IMAGE_TAG=" .env && \
                         sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env || \
                         echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
 
-                        # Restart containers
                         docker compose down
                         docker compose up -d
                         '
@@ -92,60 +87,56 @@ pipeline {
         stage('Health Check') {
             steps {
                 echo '🔍 Running health checks on CLIENT SERVER...'
-                sshagent(['DevCICD']) {
+                sshagent(['DevCICD']) {                   
                     script {
-                        def result = sh(
+                        def status = sh(
                             script: """
                                 ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
-                                for i in \$(seq 1 $MAX_RETRIES); do
+                                for i in \$(seq 1 ${MAX_RETRIES}); do
                                     HTTP_STATUS=\$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/health)
                                     if [ "\$HTTP_STATUS" -eq 200 ]; then
                                         echo "✅ Health check PASSED (HTTP \$HTTP_STATUS)"
                                         exit 0
                                     else
-                                        echo "❌ Health check FAILED (HTTP \$HTTP_STATUS) — retrying in $RETRY_INTERVAL s"
-                                        sleep $RETRY_INTERVAL
+                                        echo "❌ Health check FAILED (HTTP \$HTTP_STATUS) — retrying in ${RETRY_INTERVAL}s"
+                                        sleep ${RETRY_INTERVAL}
                                     fi
-                                    done
-                                    echo "🚨 All retries exhausted. Deployment UNHEALTHY."
-                                    exit 1
-                                    '
-                                """,
-                            returnStdout: true
-                        ).trim()
-                        echo result
+                                done
+                                echo "🚨 All retries exhausted. Deployment UNHEALTHY."
+                                exit 1
+                                '
+                            """,
+                            returnStatus: true  // ✅ exit code return karo, stdout nahi
+                        )
+                        if (status != 0) {
+                            error("❌ Health check failed — triggering rollback")
+                        }
                     }
                 }
             }
         }
     }
-    // ─── AUTO ROLLBACK on failure ─────────────────────────────────────
+    // ─── POST: Rollback on failure / Success message ──────────────────
     post {
         failure {
             echo '🔁 Rolling back on CLIENT SERVER...'
             sshagent(['DevCICD']) {
                 script {
-                    // Step 1: Auto-detect previous IMAGE_TAG
+                    // Previous tag .env se read karo
                     def prevTag = sh(
                         script: """
-                        ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
-                        grep IMAGE_TAG /root/DockStack/.env | cut -d "=" -f2
-                        '
+                            ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} \
+                            'grep "^IMAGE_TAG=" /root/DockStack/.env | cut -d "=" -f2'
                         """,
                         returnStdout: true
                     ).trim()
-                    echo "Previous image tag detected: ${prevTag}"
-                    // Step 2: Rollback safely
+
+                    echo "⏪ Rolling back to: ${prevTag}"
+
                     sh """
                         ssh -o StrictHostKeyChecking=no root@${CLIENT_SERVER_IP} '
                         cd /root/DockStack
-
-                        # Update IMAGE_TAG in env safely
-                        grep -q "^IMAGE_TAG=" .env && \
-                        sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${prevTag}/" .env || \
-                        echo "IMAGE_TAG=${prevTag}" >> .env
-
-                        # Restart containers with old version
+                        sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${prevTag}/" .env
                         docker compose down
                         docker compose up -d
                         '
@@ -155,12 +146,12 @@ pipeline {
         }
         success {
             echo """
-                ╔══════════════════════════════════════╗
-                ║  ✅ DEPLOYMENT SUCCESSFUL            ║  
-                ║  Version: ${IMAGE_TAG}               ║
-                ║  All health checks passed            ║
-                ╚══════════════════════════════════════╝
-                """
+╔══════════════════════════════════════╗
+║  ✅ DEPLOYMENT SUCCESSFUL            ║
+║  Version: ${IMAGE_TAG}               ║
+║  All health checks passed            ║
+╚══════════════════════════════════════╝
+            """
         }
     }
 }
