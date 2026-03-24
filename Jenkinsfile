@@ -7,7 +7,7 @@ pipeline {
         IMAGE_TAG = "v${env.BUILD_NUMBER}"
         NAMESPACE = 'dockstack'
         BACKEND_HEALTH_URL = 'http://127.0.0.1:5000/health'
-        CLIENT_SERVER_IP = '192.168.10.7'
+        CLIENT_SERVER_IP = '192.168.10.6'
         MAX_RETRIES = 48
         RETRY_INTERVAL = 10
     }
